@@ -11,6 +11,9 @@ use tracing::instrument;
 
 use hyperlane_core::{AccountAddressType, H256};
 
+// Bring the trait for sign_transaction into scope
+use ethers::signers::Signer;
+
 use super::aws_credentials::AwsChainCredentialsProvider;
 use crate::types::utils;
 
@@ -103,11 +106,15 @@ impl BuildableWithSignerConf for hyperlane_ethereum::Signers {
             } => {
                 let provider = Provider::<ethers::providers::Http>::try_from(url.as_str())
                     .context("Failed to create provider from URL")?;
-                hyperlane_ethereum::Signers::UnlockedNode(UnlockedNodeSigner {
+                let x = hyperlane_ethereum::Signers::UnlockedNode(UnlockedNodeSigner {
                     provider,
                     chain_id: *chain_id,
                     address: *address,
-                })
+                });
+                println!("entering sign_transaction test");
+                x.sign_transaction(&Default::default()).await?; // verify it works
+                todo!("EXIT"); // TODO: MAKING IT HERE
+                x
             }
             SignerConf::CosmosKey { .. } => {
                 bail!("cosmosKey signer is not supported by Ethereum")
