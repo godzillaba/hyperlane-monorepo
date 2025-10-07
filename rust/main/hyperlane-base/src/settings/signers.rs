@@ -1,7 +1,10 @@
 use async_trait::async_trait;
 use ethers::prelude::{AwsSigner, LocalWallet};
+use ethers::providers::Provider;
+use ethers::types::Address;
 use ethers::utils::hex::ToHex;
 use eyre::{bail, Context, Report};
+use hyperlane_ethereum::UnlockedNodeSigner;
 use rusoto_core::Region;
 use rusoto_kms::KmsClient;
 use tracing::instrument;
@@ -35,6 +38,31 @@ pub enum SignerConf {
         prefix: String,
         /// Account address type for cosmos address
         account_address_type: AccountAddressType,
+    },
+    /// Radix Specific key
+    RadixKey {
+        /// private key
+        key: H256,
+        /// suffix for address formatting
+        suffix: String,
+    },
+    /// Starknet Specific key
+    StarkKey {
+        /// Private key value
+        key: H256,
+        /// Starknet address
+        address: H256,
+        /// Whether the Starknet signer is legacy
+        is_legacy: bool,
+    },
+    /// Specified unlocked node signer.
+    UnlockedNode {
+        /// The chain id
+        chain_id: u64,
+        /// The address of the signer
+        address: Address,
+        /// The URL of the node
+        url: String,
     },
     /// Assume node will sign on RPC calls
     #[default]
@@ -83,6 +111,19 @@ impl BuildableWithSignerConf for hyperlane_ethereum::Signers {
 
                 let signer = AwsSigner::new(client, id, 0).await?;
                 hyperlane_ethereum::Signers::Aws(signer)
+            }
+            SignerConf::UnlockedNode {
+                chain_id,
+                address,
+                url,
+            } => {
+                let provider = Provider::<ethers::providers::Http>::try_from(url.as_str())
+                    .context("Failed to create provider from URL")?;
+                hyperlane_ethereum::Signers::UnlockedNode(UnlockedNodeSigner {
+                    provider,
+                    chain_id: *chain_id,
+                    address: *address,
+                })
             }
             SignerConf::CosmosKey { .. } => {
                 bail!("cosmosKey signer is not supported by Ethereum")

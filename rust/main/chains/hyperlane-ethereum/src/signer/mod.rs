@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use ethers::prelude::{Address, Signature};
-use ethers::providers::{Http, Provider, ProviderError};
+use ethers::providers::{Http, Middleware, Provider, ProviderError};
 use ethers::types::transaction::eip2718::TypedTransaction;
 use ethers::types::transaction::eip712::Eip712;
 use ethers_signers::{AwsSigner, AwsSignerError, LocalWallet, Signer, WalletError};
@@ -13,24 +13,25 @@ mod singleton;
 pub use singleton::*;
 
 #[derive(Debug, Clone)]
-pub struct NodeSigner {
-    provider: Provider<Http>,
-    address: Address,
+pub struct UnlockedNodeSigner {
+    pub provider: Provider<Http>,
+    pub chain_id: u64,
+    pub address: Address,
 }
 
-impl Signer for NodeSigner {
+impl Signer for UnlockedNodeSigner {
     #[doc = " Signs the hash of the provided message after prefixing it"]
     #[must_use]
     #[allow(elided_named_lifetimes,clippy::type_complexity,clippy::type_repetition_in_bounds)]
     fn sign_message<'life0,'async_trait,S, >(&'life0 self,message:S,) ->  ::core::pin::Pin<Box<dyn ::core::future::Future<Output = Result<Signature,Self::Error> > + ::core::marker::Send+'async_trait> >where S:'async_trait+Send+Sync+AsRef<[u8]> ,'life0:'async_trait,Self:'async_trait {
-        todo!()
+        self.provider.sign(message.as_ref().to_vec(), &self.address)
     }
 
     #[doc = " Signs the transaction"]
     #[must_use]
     #[allow(elided_named_lifetimes,clippy::type_complexity,clippy::type_repetition_in_bounds)]
     fn sign_transaction<'life0,'life1,'async_trait>(&'life0 self,message: &'life1 TypedTransaction) ->  ::core::pin::Pin<Box<dyn ::core::future::Future<Output = Result<Signature,Self::Error> > + ::core::marker::Send+'async_trait> >where 'life0:'async_trait,'life1:'async_trait,Self:'async_trait {
-        todo!()
+        self.provider.sign_transaction(message, self.address)
     }
 
     #[doc = " Encodes and signs the typed data according EIP-712."]
@@ -38,23 +39,29 @@ impl Signer for NodeSigner {
     #[must_use]
     #[allow(elided_named_lifetimes,clippy::type_complexity,clippy::type_repetition_in_bounds)]
     fn sign_typed_data<'life0,'life1,'async_trait,T, >(&'life0 self,payload: &'life1 T,) ->  ::core::pin::Pin<Box<dyn ::core::future::Future<Output = Result<Signature,Self::Error> > + ::core::marker::Send+'async_trait> >where T:'async_trait+Eip712+Send+Sync,'life0:'async_trait,'life1:'async_trait,Self:'async_trait {
-        todo!()
+        let raw = payload.encode_eip712().unwrap(); // todo: what to do instead of unwrap?
+        self.sign_message(raw)
     }
 
     #[doc = " Returns the signer\'s Ethereum Address"]
     fn address(&self) -> Address {
-        todo!()
+        self.address
     }
 
     #[doc = " Returns the signer\'s chain id"]
     fn chain_id(&self) -> u64 {
-        todo!()
+        self.chain_id
     }
 
     #[doc = " Sets the signer\'s chain id"]
     #[must_use]
     fn with_chain_id<T:Into<u64> >(self,chain_id:T) -> Self {
-        todo!()
+        let id = chain_id.into();
+        if &id == &self.chain_id {
+            self
+        } else {
+            panic!("wrong chain_id"); // todo: this is probably not ideal behavior
+        }
     }
     
     type Error = ProviderError;
@@ -68,7 +75,7 @@ pub enum Signers {
     /// A signer using a key stored in aws kms
     Aws(AwsSigner),
     /// Node-based signer that delegates to RPC provider
-    Node(NodeSigner),
+    UnlockedNode(UnlockedNodeSigner),
 }
 
 impl From<LocalWallet> for Signers {
@@ -83,17 +90,11 @@ impl From<AwsSigner> for Signers {
     }
 }
 
-impl From<NodeSigner> for Signers {
-    fn from(s: NodeSigner) -> Self {
-        Signers::Node(s)
+impl From<UnlockedNodeSigner> for Signers {
+    fn from(s: UnlockedNodeSigner) -> Self {
+        Signers::UnlockedNode(s)
     }
 }
-
-// impl From<ProviderError> for SignersError {
-//     fn from(err: ProviderError) -> Self {
-        
-//     }
-// }
 
 #[async_trait]
 impl Signer for Signers {
@@ -106,7 +107,7 @@ impl Signer for Signers {
         match self {
             Signers::Local(signer) => Ok(signer.sign_message(message).await?),
             Signers::Aws(signer) => Ok(signer.sign_message(message).await?),
-            Signers::Node(signer) => Ok(signer.sign_message(message).await?),
+            Signers::UnlockedNode(signer) => Ok(signer.sign_message(message).await?),
         }
     }
 
@@ -114,7 +115,7 @@ impl Signer for Signers {
         match self {
             Signers::Local(signer) => Ok(signer.sign_transaction(message).await?),
             Signers::Aws(signer) => Ok(signer.sign_transaction(message).await?),
-            Signers::Node(signer) => Ok(signer.sign_transaction(message).await?),
+            Signers::UnlockedNode(signer) => Ok(signer.sign_transaction(message).await?),
         }
     }
 
@@ -125,7 +126,7 @@ impl Signer for Signers {
         match self {
             Signers::Local(signer) => Ok(signer.sign_typed_data(payload).await?),
             Signers::Aws(signer) => Ok(signer.sign_typed_data(payload).await?),
-            Signers::Node(signer) => Ok(signer.sign_typed_data(payload).await?),
+            Signers::UnlockedNode(signer) => Ok(signer.sign_typed_data(payload).await?),
         }
     }
 
@@ -133,7 +134,7 @@ impl Signer for Signers {
         match self {
             Signers::Local(signer) => signer.address(),
             Signers::Aws(signer) => signer.address(),
-            Signers::Node(signer) => signer.address(),
+            Signers::UnlockedNode(signer) => signer.address(),
         }
     }
 
@@ -141,7 +142,7 @@ impl Signer for Signers {
         match self {
             Signers::Local(signer) => signer.chain_id(),
             Signers::Aws(signer) => signer.chain_id(),
-            Signers::Node(signer) => signer.chain_id(),
+            Signers::UnlockedNode(signer) => signer.chain_id(),
         }
     }
 
@@ -149,7 +150,7 @@ impl Signer for Signers {
         match self {
             Signers::Local(signer) => signer.with_chain_id(chain_id).into(),
             Signers::Aws(signer) => signer.with_chain_id(chain_id).into(),
-            Signers::Node(signer) => signer.with_chain_id(chain_id).into(),
+            Signers::UnlockedNode(signer) => signer.with_chain_id(chain_id).into(),
         }
     }
 }
