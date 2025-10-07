@@ -39,22 +39,6 @@ pub enum SignerConf {
         /// Account address type for cosmos address
         account_address_type: AccountAddressType,
     },
-    /// Radix Specific key
-    RadixKey {
-        /// private key
-        key: H256,
-        /// suffix for address formatting
-        suffix: String,
-    },
-    /// Starknet Specific key
-    StarkKey {
-        /// Private key value
-        key: H256,
-        /// Starknet address
-        address: H256,
-        /// Whether the Starknet signer is legacy
-        is_legacy: bool,
-    },
     /// Specified unlocked node signer.
     UnlockedNode {
         /// The chain id
