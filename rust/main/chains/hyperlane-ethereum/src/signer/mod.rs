@@ -5,7 +5,7 @@ use ethers::prelude::{Address, Signature};
 use ethers::providers::{Http, Middleware, Provider, ProviderError};
 use ethers::types::transaction::eip2718::TypedTransaction;
 use ethers::types::transaction::eip712::Eip712;
-use ethers::types::{Bytes};
+use ethers::types::Bytes;
 use ethers::utils::rlp::Rlp;
 use ethers_signers::{AwsSigner, AwsSignerError, LocalWallet, Signer, WalletError};
 
@@ -59,7 +59,10 @@ impl Signer for UnlockedNodeSigner {
         let mut tx_obj = message.clone();
         tx_obj.set_from(self.address);
         let tx_str = ethers::utils::serialize(&tx_obj);
-        let signed_tx: String = self.provider.request("eth_signTransaction", [tx_str]).await?;
+        let signed_tx: String = self
+            .provider
+            .request("eth_signTransaction", [tx_str])
+            .await?;
         let signed_tx_bytes = Vec::from_hex(signed_tx.trim_start_matches("0x"))?;
         let rlp = Rlp::new(&signed_tx_bytes);
         let (_tx, sig) = TypedTransaction::decode_signed(&rlp)?;
@@ -95,7 +98,7 @@ impl Signer for UnlockedNodeSigner {
             panic!("wrong chain_id"); // todo: this is probably not ideal behavior
         }
     }
-    
+
     type Error = UnlockedNodeSignerError;
 }
 
@@ -113,7 +116,7 @@ pub enum UnlockedNodeSignerError {
     HexError(#[from] hex::FromHexError),
     /// Transaction request error
     #[error("{0}")]
-    TransactionRequestError(#[from] ethers::types::transaction::eip2718::TypedTransactionError),    
+    TransactionRequestError(#[from] ethers::types::transaction::eip2718::TypedTransactionError),
 }
 
 /// Ethereum-supported signer types

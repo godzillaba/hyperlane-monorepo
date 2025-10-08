@@ -359,7 +359,7 @@ fn parse_signer(signer: ValueParser) -> ConfigResult<SignerConf> {
                 .get_key("url")
                 .parse_from_str("Expected URL")
                 .unwrap_or_default();
-            
+
             err.into_result(SignerConf::UnlockedNode {
                 address: address.into(),
                 url: url,

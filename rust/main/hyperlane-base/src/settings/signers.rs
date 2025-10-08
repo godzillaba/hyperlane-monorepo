@@ -94,14 +94,10 @@ impl BuildableWithSignerConf for hyperlane_ethereum::Signers {
                 let signer = AwsSigner::new(client, id, 0).await?;
                 hyperlane_ethereum::Signers::Aws(signer)
             }
-            SignerConf::UnlockedNode {
-                address,
-                url,
-            } => {
+            SignerConf::UnlockedNode { address, url } => {
                 let provider = Provider::<ethers::providers::Http>::try_from(url.as_str())
                     .context("Failed to create provider from URL")?;
-                UnlockedNodeSigner::new(provider, *address)
-                    .await?.into()
+                UnlockedNodeSigner::new(provider, *address).await?.into()
             }
             SignerConf::CosmosKey { .. } => {
                 bail!("cosmosKey signer is not supported by Ethereum")
