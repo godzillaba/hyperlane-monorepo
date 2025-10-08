@@ -348,6 +348,23 @@ fn parse_signer(signer: ValueParser) -> ConfigResult<SignerConf> {
                 .unwrap_or_default();
             err.into_result(SignerConf::Aws { id, region })
         }};
+        (unlockedNode) => {{
+            let address = signer
+                .chain(&mut err)
+                .get_key("address")
+                .parse_address_hash()
+                .unwrap_or_default();
+            let url = signer
+                .chain(&mut err)
+                .get_key("url")
+                .parse_from_str("Expected URL")
+                .unwrap_or_default();
+
+            err.into_result(SignerConf::UnlockedNode {
+                address: address.into(),
+                url: url,
+            })
+        }};
         (cosmosKey) => {{
             let key = signer
                 .chain(&mut err)
@@ -376,6 +393,7 @@ fn parse_signer(signer: ValueParser) -> ConfigResult<SignerConf> {
     match signer_type {
         Some("hexKey") => parse_signer!(hexKey),
         Some("aws") => parse_signer!(aws),
+        Some("unlockedNode") => parse_signer!(unlockedNode),
         Some("cosmosKey") => parse_signer!(cosmosKey),
         Some(t) => {
             Err(eyre!("Unknown signer type `{t}`")).into_config_result(|| &signer.cwp + "type")

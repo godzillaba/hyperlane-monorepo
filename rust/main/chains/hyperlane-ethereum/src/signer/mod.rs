@@ -11,6 +11,9 @@ use hyperlane_core::{
 mod singleton;
 pub use singleton::*;
 
+mod unlocked_node_signer;
+pub use unlocked_node_signer::{UnlockedNodeSigner, UnlockedNodeSignerError};
+
 /// Ethereum-supported signer types
 #[derive(Debug, Clone)]
 pub enum Signers {
@@ -18,6 +21,8 @@ pub enum Signers {
     Local(LocalWallet),
     /// A signer using a key stored in aws kms
     Aws(AwsSigner),
+    /// Node-based signer that delegates to RPC provider
+    UnlockedNode(UnlockedNodeSigner),
 }
 
 impl From<LocalWallet> for Signers {
@@ -32,6 +37,12 @@ impl From<AwsSigner> for Signers {
     }
 }
 
+impl From<UnlockedNodeSigner> for Signers {
+    fn from(s: UnlockedNodeSigner) -> Self {
+        Signers::UnlockedNode(s)
+    }
+}
+
 #[async_trait]
 impl Signer for Signers {
     type Error = SignersError;
@@ -43,6 +54,7 @@ impl Signer for Signers {
         match self {
             Signers::Local(signer) => Ok(signer.sign_message(message).await?),
             Signers::Aws(signer) => Ok(signer.sign_message(message).await?),
+            Signers::UnlockedNode(signer) => Ok(signer.sign_message(message).await?),
         }
     }
 
@@ -50,6 +62,7 @@ impl Signer for Signers {
         match self {
             Signers::Local(signer) => Ok(signer.sign_transaction(message).await?),
             Signers::Aws(signer) => Ok(signer.sign_transaction(message).await?),
+            Signers::UnlockedNode(signer) => Ok(signer.sign_transaction(message).await?),
         }
     }
 
@@ -60,6 +73,7 @@ impl Signer for Signers {
         match self {
             Signers::Local(signer) => Ok(signer.sign_typed_data(payload).await?),
             Signers::Aws(signer) => Ok(signer.sign_typed_data(payload).await?),
+            Signers::UnlockedNode(signer) => Ok(signer.sign_typed_data(payload).await?),
         }
     }
 
@@ -67,6 +81,7 @@ impl Signer for Signers {
         match self {
             Signers::Local(signer) => signer.address(),
             Signers::Aws(signer) => signer.address(),
+            Signers::UnlockedNode(signer) => signer.address(),
         }
     }
 
@@ -74,6 +89,7 @@ impl Signer for Signers {
         match self {
             Signers::Local(signer) => signer.chain_id(),
             Signers::Aws(signer) => signer.chain_id(),
+            Signers::UnlockedNode(signer) => signer.chain_id(),
         }
     }
 
@@ -81,6 +97,7 @@ impl Signer for Signers {
         match self {
             Signers::Local(signer) => signer.with_chain_id(chain_id).into(),
             Signers::Aws(signer) => signer.with_chain_id(chain_id).into(),
+            Signers::UnlockedNode(signer) => signer.with_chain_id(chain_id).into(),
         }
     }
 }
@@ -109,6 +126,9 @@ pub enum SignersError {
     /// Wallet Signer Error
     #[error("{0}")]
     WalletError(#[from] WalletError),
+    /// UnlockedNode Signer Error
+    #[error("{0}")]
+    UnlockedNodeSignerError(#[from] UnlockedNodeSignerError),
 }
 
 impl From<std::convert::Infallible> for SignersError {
