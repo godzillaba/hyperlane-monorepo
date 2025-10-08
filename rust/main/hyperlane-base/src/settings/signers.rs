@@ -111,9 +111,6 @@ impl BuildableWithSignerConf for hyperlane_ethereum::Signers {
                     chain_id: *chain_id,
                     address: *address,
                 });
-                println!("entering sign_transaction test");
-                x.sign_transaction(&Default::default()).await?; // verify it works
-                todo!("EXIT"); // TODO: MAKING IT HERE
                 x
             }
             SignerConf::CosmosKey { .. } => {
