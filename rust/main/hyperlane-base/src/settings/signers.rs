@@ -11,9 +11,6 @@ use tracing::instrument;
 
 use hyperlane_core::{AccountAddressType, H256};
 
-// Bring the trait for sign_transaction into scope
-use ethers::signers::Signer;
-
 use super::aws_credentials::AwsChainCredentialsProvider;
 use crate::types::utils;
 

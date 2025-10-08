@@ -5,8 +5,8 @@ use ethers::prelude::{Address, Signature};
 use ethers::providers::{Http, Middleware, Provider, ProviderError};
 use ethers::types::transaction::eip2718::TypedTransaction;
 use ethers::types::transaction::eip712::Eip712;
-use ethers::types::{Bytes, Eip1559TransactionRequest, Transaction, TransactionRequest};
-use ethers::utils::rlp::{Decodable, Rlp};
+use ethers::types::{Bytes};
+use ethers::utils::rlp::Rlp;
 use ethers_signers::{AwsSigner, AwsSignerError, LocalWallet, Signer, WalletError};
 
 use hex::FromHex;
@@ -19,14 +19,19 @@ pub use singleton::*;
 
 #[derive(Debug, Clone)]
 pub struct UnlockedNodeSigner {
+    /// An HTTP-based Ethereum JSON-RPC provider used to interact with the blockchain.
+    /// Must have address unlocked for signing operations.
     pub provider: Provider<Http>,
+    /// The chain ID associated with the Ethereum network.
+    /// Must match the chain ID of the node.
     pub chain_id: u64,
+    /// The Ethereum address of the signer.
+    /// Must be unlocked on the node.
     pub address: Address,
 }
 
 #[async_trait]
 impl Signer for UnlockedNodeSigner {
-
     /// Signs the hash of the provided message after prefixing it
     async fn sign_message<S: Send + Sync + AsRef<[u8]>>(
         &self,
@@ -38,35 +43,14 @@ impl Signer for UnlockedNodeSigner {
 
     /// Signs the transaction
     async fn sign_transaction(&self, message: &TypedTransaction) -> Result<Signature, Self::Error> {
-        println!("In sign_transaction");
         let mut tx_obj = message.clone();
         tx_obj.set_from(self.address);
         let tx_str = ethers::utils::serialize(&tx_obj);
-        println!("TX: {:?}", tx_str);
         let signed_tx: String = self.provider.request("eth_signTransaction", [tx_str]).await?;
-        println!("Signed TX: {:?}", signed_tx);
-        
-        
-        
         let signed_tx_bytes = Vec::from_hex(signed_tx.trim_start_matches("0x"))?;
         let rlp = Rlp::new(&signed_tx_bytes);
-        println!("RLP init");
         let (_tx, sig) = TypedTransaction::decode_signed(&rlp)?;
-
         Ok(sig)
-
-
-        // let rlp = Rlp::new(&signed_tx_bytes);
-        // let decoded_tx = TypedTransaction::decode(&rlp)?;
-        // decoded_tx.sig
-
-
-        // let y = TypedTransaction::decode(&Rlp::new(Vec::from_hex(signed_tx)));
-        // let sig = signed_tx.parse::<Transaction>()?;
-        
-
-        // println!("Response: {:?}", res);
-        // Ok(res.parse::<Signature>()?)
     }
 
     /// Encodes and signs the typed data according EIP-712.
@@ -98,55 +82,6 @@ impl Signer for UnlockedNodeSigner {
             panic!("wrong chain_id"); // todo: this is probably not ideal behavior
         }
     }
-
-    // async fn sign_message<S: Send + Sync + AsRef<[u8]>>(
-    //     &self,
-    //     message: S,
-    // ) -> Result<Signature, Self::Error> {
-    //     // let message = message.as_ref();
-    //     // let message_hash = hash_message(message);
-    //     // trace!("{:?}", message_hash);
-    //     // trace!("{:?}", message);
-    //     // self.provider.request("eth_sign", [self.address, message_hash]).await.map_err(ProviderError::from)
-    //     // self.provider.request("eth_sign", [self.address, "oqwiefjoiqwefj"]).await.map_err(ProviderError::from)
-    // }
-
-    // #[doc = " Signs the transaction"]
-    // #[must_use]
-    // #[allow(elided_named_lifetimes,clippy::type_complexity,clippy::type_repetition_in_bounds)]
-    // fn sign_transaction<'life0,'life1,'async_trait>(&'life0 self,message: &'life1 TypedTransaction) ->  ::core::pin::Pin<Box<dyn ::core::future::Future<Output = Result<Signature,Self::Error> > + ::core::marker::Send+'async_trait> >where 'life0:'async_trait,'life1:'async_trait,Self:'async_trait {
-    //     self.provider.sign_transaction(message, self.address)
-    // }
-
-    // #[doc = " Encodes and signs the typed data according EIP-712."]
-    // #[doc = " Payload must implement Eip712 trait."]
-    // #[must_use]
-    // #[allow(elided_named_lifetimes,clippy::type_complexity,clippy::type_repetition_in_bounds)]
-    // fn sign_typed_data<'life0,'life1,'async_trait,T, >(&'life0 self,payload: &'life1 T,) ->  ::core::pin::Pin<Box<dyn ::core::future::Future<Output = Result<Signature,Self::Error> > + ::core::marker::Send+'async_trait> >where T:'async_trait+Eip712+Send+Sync,'life0:'async_trait,'life1:'async_trait,Self:'async_trait {
-    //     let raw = payload.encode_eip712().unwrap(); // todo: what to do instead of unwrap?
-    //     self.sign_message(raw)
-    // }
-
-    // #[doc = " Returns the signer\'s Ethereum Address"]
-    // fn address(&self) -> Address {
-    //     self.address
-    // }
-
-    // #[doc = " Returns the signer\'s chain id"]
-    // fn chain_id(&self) -> u64 {
-    //     self.chain_id
-    // }
-
-    // #[doc = " Sets the signer\'s chain id"]
-    // #[must_use]
-    // fn with_chain_id<T:Into<u64> >(self,chain_id:T) -> Self {
-    //     let id = chain_id.into();
-    //     if &id == &self.chain_id {
-    //         self
-    //     } else {
-    //         panic!("wrong chain_id"); // todo: this is probably not ideal behavior
-    //     }
-    // }
     
     type Error = UnlockedNodeSignerError;
 }
@@ -163,9 +98,6 @@ pub enum UnlockedNodeSignerError {
     /// Hex decoding error
     #[error("{0}")]
     HexError(#[from] hex::FromHexError),
-    /// RLP Decoding error
-    #[error("{0}")]
-    RlpDecodingError(#[from] ethers::utils::rlp::DecoderError),
     /// Transaction request error
     #[error("{0}")]
     TransactionRequestError(#[from] ethers::types::transaction::eip2718::TypedTransactionError),    
