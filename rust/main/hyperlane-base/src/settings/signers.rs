@@ -41,8 +41,6 @@ pub enum SignerConf {
     },
     /// Specified unlocked node signer.
     UnlockedNode {
-        /// The chain id
-        chain_id: u64,
         /// The address of the signer
         address: Address,
         /// The URL of the node
@@ -97,18 +95,13 @@ impl BuildableWithSignerConf for hyperlane_ethereum::Signers {
                 hyperlane_ethereum::Signers::Aws(signer)
             }
             SignerConf::UnlockedNode {
-                chain_id,
                 address,
                 url,
             } => {
                 let provider = Provider::<ethers::providers::Http>::try_from(url.as_str())
                     .context("Failed to create provider from URL")?;
-                let x = hyperlane_ethereum::Signers::UnlockedNode(UnlockedNodeSigner {
-                    provider,
-                    chain_id: *chain_id,
-                    address: *address,
-                });
-                x
+                UnlockedNodeSigner::new(provider, *address)
+                    .await?.into()
             }
             SignerConf::CosmosKey { .. } => {
                 bail!("cosmosKey signer is not supported by Ethereum")

@@ -18,6 +18,7 @@ mod singleton;
 pub use singleton::*;
 
 #[derive(Debug, Clone)]
+/// A signer that uses an unlocked Ethereum node via HTTP JSON-RPC to sign messages and transactions.
 pub struct UnlockedNodeSigner {
     /// An HTTP-based Ethereum JSON-RPC provider used to interact with the blockchain.
     /// Must have address unlocked for signing operations.
@@ -28,6 +29,18 @@ pub struct UnlockedNodeSigner {
     /// The Ethereum address of the signer.
     /// Must be unlocked on the node.
     pub address: Address,
+}
+
+impl UnlockedNodeSigner {
+    /// Creates a new UnlockedNodeSigner with the given provider and address.
+    pub async fn new(provider: Provider<Http>, address: Address) -> Result<Self, ProviderError> {
+        let chain_id = provider.get_chainid().await?.as_u64();
+        Ok(Self {
+            provider,
+            chain_id,
+            address,
+        })
+    }
 }
 
 #[async_trait]

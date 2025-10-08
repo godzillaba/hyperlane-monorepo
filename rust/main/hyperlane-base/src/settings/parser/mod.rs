@@ -349,11 +349,6 @@ fn parse_signer(signer: ValueParser) -> ConfigResult<SignerConf> {
             err.into_result(SignerConf::Aws { id, region })
         }};
         (unlockedNode) => {{
-            let chain_id = signer
-                .chain(&mut err)
-                .get_key("chainId")
-                .parse_u64()
-                .unwrap_or_default();
             let address = signer
                 .chain(&mut err)
                 .get_key("address")
@@ -366,7 +361,6 @@ fn parse_signer(signer: ValueParser) -> ConfigResult<SignerConf> {
                 .unwrap_or_default();
             
             err.into_result(SignerConf::UnlockedNode {
-                chain_id: chain_id,
                 address: address.into(),
                 url: url,
             })
